@@ -1,7 +1,7 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch: # para ejecutarlo manualmente
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -27,13 +27,17 @@ jobs:
       - name: Prebuild Android project
         run: npx expo prebuild --platform android
 
+      - name: Generate JS bundle
+        run: |
+          npx expo export --platform android
+
       - name: Build APK with Gradle
         run: |
           cd android
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: calculadoraT-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: calculadoraT-release
+          path: android/app/build/outputs/apk/release/app-release.apk
