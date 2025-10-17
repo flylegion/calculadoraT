@@ -1,19 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  AppState,
-  StatusBar as RNStatusBar,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from 'expo-system-ui';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { calcularInicial } from './calculoInicial';
 import { calcularPuntos } from './calculoPuntos';
@@ -29,11 +20,11 @@ function AppContent() {
   const [timeoutId, setTimeoutId] = useState(null);
   const [copiado, setCopiado] = useState(null);
 
-  // 🧱 Configurar fondo del sistema + barra de navegación
+  // 🧱 Configurar UI
   useEffect(() => {
     const configurarUI = async () => {
       try {
-        await SystemUI.setBackgroundColorAsync('#121212');
+        await SystemUI.setBackgroundColorAsync('#121212');  
         await NavigationBar.setBackgroundColorAsync('#121212');
         await NavigationBar.setButtonStyleAsync('light');
         await NavigationBar.setBehaviorAsync('inset-swipe');
@@ -44,45 +35,6 @@ function AppContent() {
     };
     configurarUI();
   }, []);
-
-  // 🧩 Cargar datos guardados
-  useEffect(() => {
-    (async () => {
-      try {
-        const saved = await AsyncStorage.getItem('simuladorData');
-        if (saved) {
-          const data = JSON.parse(saved);
-          setPrecio(data.precio || '');
-          setUsd(data.usd || '');
-          setNumRondas(data.numRondas || '3');
-          setResultadosR1(data.resultadosR1 || null);
-          setRondas(data.rondas || []);
-        }
-      } catch (e) {
-        console.log('Error cargando datos guardados:', e);
-      }
-    })();
-  }, []);
-
-  // 💾 Guardar cambios automáticamente
-  useEffect(() => {
-    const saveData = async () => {
-      const data = { precio, usd, numRondas, resultadosR1, rondas };
-      await AsyncStorage.setItem('simuladorData', JSON.stringify(data));
-    };
-    saveData();
-  }, [precio, usd, numRondas, resultadosR1, rondas]);
-
-  // 💡 Guardar también al pasar a segundo plano
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', async (state) => {
-      if (state === 'background') {
-        const data = { precio, usd, numRondas, resultadosR1, rondas };
-        await AsyncStorage.setItem('simuladorData', JSON.stringify(data));
-      }
-    });
-    return () => sub.remove();
-  }, [precio, usd, numRondas, resultadosR1, rondas]);
 
   const copiar = (texto, id) => {
     Clipboard.setStringAsync(texto.toString());
@@ -98,8 +50,19 @@ function AppContent() {
     if (timeoutId) clearTimeout(timeoutId);
   };
 
+  // ✅ Función para permitir hasta 9 decimales
+  const handleDecimalInput = (text, setter) => {
+    const regex = /^\d*\.?\d{0,9}$/;
+    if (text === '' || regex.test(text)) {
+      setter(text);
+    }
+  };
+
   const calcular = () => {
-    const inicial = calcularInicial(precio, usd);
+    const precioNum = parseFloat(precio) || 0;
+    const usdNum = parseFloat(usd) || 0;
+
+    const inicial = calcularInicial(precioNum, usdNum);
     if (!inicial) return;
     const datosR1 = calcularPuntos(inicial);
     const resR1 = calcularResultados(datosR1);
@@ -183,13 +146,13 @@ function AppContent() {
 
   return (
     <>
-      <RNStatusBar barStyle="light-content" backgroundColor="#121212" />
+      <StatusBar style="light" backgroundColor="#121212" translucent={false} />
 
       {/* 🔹 Barra superior */}
       <View
         style={{
           position: 'absolute',
-          top: Constants.statusBarHeight + 10, // ✅ usa altura real de la barra de notificaciones
+          top: 10,
           left: 10,
           right: 10,
           zIndex: 10,
@@ -205,8 +168,8 @@ function AppContent() {
           placeholder="Precio"
           placeholderTextColor="#777"
           keyboardType="numeric"
-          value={precio.toString()}
-          onChangeText={(text) => setPrecio(parseFloat(text) || 0)}
+          value={precio}
+          onChangeText={(text) => handleDecimalInput(text, setPrecio)}
           style={{
             flex: 1,
             borderWidth: 1,
@@ -224,8 +187,8 @@ function AppContent() {
           placeholder="USD"
           placeholderTextColor="#777"
           keyboardType="numeric"
-          value={usd.toString()}
-          onChangeText={(text) => setUsd(parseFloat(text) || 0)}
+          value={usd}
+          onChangeText={(text) => handleDecimalInput(text, setUsd)}
           style={{
             flex: 1,
             borderWidth: 1,
@@ -274,23 +237,17 @@ function AppContent() {
       {/* 🔸 Contenido */}
       <ScrollView
         style={{ flex: 1, backgroundColor: '#121212' }}
-        contentContainerStyle={{
-          paddingTop: Constants.statusBarHeight + 70,
-          paddingBottom: 40,
-          paddingHorizontal: 20,
-        }}
+        contentContainerStyle={{ paddingTop: 80, paddingBottom: 40, paddingHorizontal: 20 }}
       >
         {resultadosR1 && (
-          <View
-            style={{
+          <View style={{
               marginBottom: 10,
               backgroundColor: '#181818',
               borderRadius: 8,
               borderWidth: 1,
               borderColor: '#2a2a2a',
               padding: 10,
-            }}
-          >
+            }}>
             <Text style={{ color: '#00b8d4', marginBottom: 10, fontSize: 13, fontWeight: '600' }}>
               Ronda 1:
             </Text>
@@ -299,45 +256,27 @@ function AppContent() {
             <View style={{ flexDirection: 'row' }}>
               <Text style={{ flex: 2 }} />
               <Text style={{ flex: 1, textAlign: 'right', color: '#4fff8f' }}>
-                {parseFloat(resultadosR1.totalCoins).toFixed(6)}
+                {parseFloat(resultadosR1.totalCoins).toFixed(9)}
               </Text>
               <Text style={{ flex: 1, textAlign: 'right', color: '#4fff8f' }}>
                 ${parseFloat(resultadosR1.totalUsd).toFixed(2)}
               </Text>
             </View>
-            <Text
-              style={{
-                marginTop: 6,
-                color: '#aaa',
-                fontStyle: 'italic',
-                textAlign: 'left',
-                fontSize: 11,
-              }}
-            >
-              Promedio:{' '}
-              <Text style={{ color: '#ff66c4' }}>
-                {parseFloat(resultadosR1.promedio).toFixed(4)}
-              </Text>{' '}
-              | −5%:{' '}
-              <Text style={{ color: '#ff66c4' }}>
-                {parseFloat(resultadosR1.promedioMinus5).toFixed(4)}
-              </Text>
+            <Text style={{ marginTop: 6, color: '#aaa', fontStyle: 'italic', textAlign: 'left', fontSize: 11 }}>
+              Promedio: <Text style={{ color: '#ff66c4' }}>{parseFloat(resultadosR1.promedio).toFixed(9)}</Text> | −5%: <Text style={{ color: '#ff66c4' }}>{parseFloat(resultadosR1.promedioMinus5).toFixed(9)}</Text>
             </Text>
           </View>
         )}
 
         {rondas.map((ronda, idx) => (
-          <View
-            key={idx}
-            style={{
+          <View key={idx} style={{
               marginBottom: 10,
               backgroundColor: '#181818',
               borderRadius: 8,
               borderWidth: 1,
               borderColor: '#2a2a2a',
               padding: 10,
-            }}
-          >
+            }}>
             <Text style={{ color: '#00b8d4', marginBottom: 10, fontSize: 13, fontWeight: '600' }}>
               Ronda {ronda.ronda}:
             </Text>
@@ -346,35 +285,20 @@ function AppContent() {
             <View style={{ flexDirection: 'row' }}>
               <Text style={{ flex: 2 }} />
               <Text style={{ flex: 1, textAlign: 'right', color: '#4fff8f' }}>
-                {parseFloat(ronda.totalCoins).toFixed(6)}
+                {parseFloat(ronda.totalCoins).toFixed(9)}
               </Text>
               <Text style={{ flex: 1, textAlign: 'right', color: '#4fff8f' }}>
                 ${parseFloat(ronda.totalUsd).toFixed(2)}
               </Text>
             </View>
-            <Text
-              style={{
-                marginTop: 6,
-                color: '#aaa',
-                fontStyle: 'italic',
-                textAlign: 'left',
-                fontSize: 11,
-              }}
-            >
-              Promedio:{' '}
-              <Text style={{ color: '#ff66c4' }}>
-                {parseFloat(ronda.promedio).toFixed(4)}
-              </Text>{' '}
-              | −5%:{' '}
-              <Text style={{ color: '#ff66c4' }}>
-                {parseFloat(ronda.promedioMenos5).toFixed(4)}
-              </Text>
+            <Text style={{ marginTop: 6, color: '#aaa', fontStyle: 'italic', textAlign: 'left', fontSize: 11 }}>
+              Promedio: <Text style={{ color: '#ff66c4' }}>{parseFloat(ronda.promedio).toFixed(9)}</Text> | −5%: <Text style={{ color: '#ff66c4' }}>{parseFloat(ronda.promedioMenos5).toFixed(9)}</Text>
             </Text>
           </View>
         ))}
       </ScrollView>
 
-      {/* 🧱 Fondo mismo color que app para cubrir gesture bar */}
+      {/* 🧱 Fondo gesture bar */}
       <View
         style={{
           position: 'absolute',
@@ -391,15 +315,8 @@ function AppContent() {
 
 export default function App() {
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        paddingTop: Constants.statusBarHeight,
-        backgroundColor: '#121212',
-      }}
-    >
-      <RNStatusBar barStyle="light-content" backgroundColor="#121212" />
+    <SafeAreaProvider>
       <AppContent />
-    </SafeAreaView>
+    </SafeAreaProvider>
   );
-  }
+    }
