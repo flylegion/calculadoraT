@@ -26,8 +26,6 @@ export const generarRondas = (numRondas, totalUsdInicial, promedioInicial) => {
       };
     });
 
-    // 🔹 Ordenar por precio
-    datos.sort((a, b) => parseFloat(a.precio) - parseFloat(b.precio));
 
     // 🔹 Totales reales
     const totalCoins = datos.reduce((sum, d) => sum + (parseFloat(d.coins) || 0.0), 0.0);
