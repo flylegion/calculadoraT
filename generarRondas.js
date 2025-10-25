@@ -5,7 +5,7 @@ export const generarRondas = (numRondas, totalUsdInicial, promedioInicial) => {
   let promedio = parseFloat(promedioInicial) || 0.0;
 
   for (let i = 1; i <= numRondas; i++) {
-    const totalRonda = totalUsd * 2.0;
+    const totalRonda = totalUsd * 1.9;
     const factores = [0.5714, 0.2857, 0.1429];
     const nivelesUsd = factores.map((f) => totalRonda * f);
 
